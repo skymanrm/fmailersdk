@@ -1,0 +1,5 @@
+# Core dependencies
+requests>=2.31.0
+
+# Development/Testing dependencies
+faker>=20.0.0
