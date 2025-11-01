@@ -6,8 +6,8 @@ from concurrent.futures import TimeoutError as FuturesTimeoutError
 import requests
 from faker import Faker
 
-from exceptions import FmailerSdkException
-from sdk import FmailerSdk
+from fmailersdk.exceptions import FmailerSdkException
+from fmailersdk.sdk import FmailerSdk
 
 faker = Faker()
 

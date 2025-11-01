@@ -5,7 +5,7 @@ The SDK now supports asynchronous email sending using background threads,
 allowing the main thread to continue without waiting for API responses.
 """
 
-from .sdk import FmailerSdk
+from fmailersdk import FmailerSdk
 
 
 # Initialize SDK
