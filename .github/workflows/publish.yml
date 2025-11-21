@@ -22,8 +22,9 @@ jobs:
       id: get_version
       run: |
         if [ "${{ github.event_name }}" == "release" ]; then
-          # Extract version from release tag (e.g., v0.2.0 -> 0.2.0)
-          VERSION=${GITHUB_REF#refs/tags/v}
+          # Extract version from release tag (e.g., refs/tags/v0.2.0 -> 0.2.0)
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version from release tag: $VERSION"
         else
@@ -38,7 +39,8 @@ jobs:
       run: |
         VERSION=${{ steps.get_version.outputs.version }}
         echo "Updating pyproject.toml to version $VERSION"
-        sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+        sed -i "s|^version = .*|version = \"$VERSION\"|" pyproject.toml
+        echo "Updated version:"
         grep "^version = " pyproject.toml
 
     - name: Set up Python
