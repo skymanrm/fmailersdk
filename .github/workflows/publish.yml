@@ -18,6 +18,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" == "release" ]; then
+          # Extract version from release tag (e.g., v0.2.0 -> 0.2.0)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version from release tag: $VERSION"
+        else
+          # For workflow_dispatch, use version from pyproject.toml
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version from pyproject.toml: $VERSION"
+        fi
+
+    - name: Update version in pyproject.toml
+      if: github.event_name == 'release'
+      run: |
+        VERSION=${{ steps.get_version.outputs.version }}
+        echo "Updating pyproject.toml to version $VERSION"
+        sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+        grep "^version = " pyproject.toml
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
