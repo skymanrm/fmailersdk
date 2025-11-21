@@ -6,25 +6,48 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 FmailerSDK is a Python SDK for the Fmailer email service API (api.fmailer.ru). It provides both synchronous and asynchronous methods for sending emails via templates or simple HTML content.
 
+## Project Structure
+
+```
+fmailersdk/
+├── src/
+│   └── fmailersdk/          # Main package source
+│       ├── __init__.py      # Package initialization
+│       ├── sdk.py           # Core SDK implementation
+│       └── exceptions.py    # Custom exceptions
+├── tests/
+│   ├── __init__.py
+│   └── test_sdk.py          # Test suite (sync + async tests)
+├── examples/
+│   ├── async_example.py     # Async usage examples
+│   └── logging_example.py   # Logging configuration examples
+├── pyproject.toml           # Project configuration
+├── Makefile                 # Development commands
+└── README.md                # User documentation
+```
+
 ## Architecture
 
 ### Core Components
 
-1. **FmailerSdk class** (`sdk.py`):
+1. **FmailerSdk class** (`src/fmailersdk/sdk.py`):
    - Main SDK class handling both sync and async email operations
    - Uses lazy-initialized ThreadPoolExecutor for async operations
    - Supports idempotency keys to prevent duplicate sends
+   - Comprehensive logging with configurable log levels
    - Two main sending modes:
      - `send_simple()` / `send_simple_async()`: Send HTML emails directly
      - `send()` / `send_async()`: Send templated emails with parameters
 
-2. **Exception handling** (`exceptions.py`):
+2. **Exception handling** (`src/fmailersdk/exceptions.py`):
    - Single custom exception: `FmailerSdkException`
    - Used for both API errors and network failures
 
-3. **Import structure** (`__init__.py`):
-   - Package is currently minimal (single line file)
-   - Note: Import paths in code reference `fmailerdjango.fmailersdk.*` which suggests this was extracted from a Django project
+3. **Logging**:
+   - Configurable log level via `log_level` parameter in SDK initialization
+   - DEBUG level: Full request/response details with sanitized credentials
+   - INFO level: Operational messages (initialization, sends, shutdown)
+   - ERROR level: API errors, network failures, task failures
 
 ### Key Design Patterns
 
@@ -49,27 +72,39 @@ Dependencies:
 
 ### Running Tests
 
-Activate the virtual environment first, then run tests with the proper PYTHONPATH:
+The easiest way to run tests is using the Makefile:
+
+```bash
+# Run all tests
+make test
+
+# Run synchronous tests only
+make test-sync
+
+# Run asynchronous tests only
+make test-async
+
+# Run a specific test
+make test-specific TEST=tests.test_sdk.FmailersdkAsyncTestUtils.test_send_simple_async_success
+```
+
+Or manually with proper PYTHONPATH:
 
 ```bash
 source .venv/bin/activate
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests
+PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest discover -s tests
 ```
 
 Run specific test class:
 ```bash
 source .venv/bin/activate
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.FmailersdkTestUtils
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.FmailersdkAsyncTestUtils
-```
-
-Run specific test:
-```bash
-source .venv/bin/activate
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.FmailersdkAsyncTestUtils.test_send_simple_async_success
+PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.test_sdk.FmailersdkTestUtils
+PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.test_sdk.FmailersdkAsyncTestUtils
 ```
 
 ### Test Structure
+
+Located in `tests/test_sdk.py`:
 
 - `FmailersdkTestUtils`: Tests for synchronous methods
 - `FmailersdkAsyncTestUtils`: Comprehensive async method tests including callbacks, futures, concurrent execution, and executor lifecycle
@@ -100,14 +135,15 @@ auth = {"username": username, "password": password}
   - Checked with `future.done()`
   - Used with callbacks for fire-and-forget patterns
 
-### Import Path Issue
+### Import Structure
 
-**CRITICAL**: The codebase has hardcoded import paths:
+The package uses a standard src/ layout:
 ```python
-from fmailerdjango.fmailersdk.exceptions import FmailerSdkException
-from fmailerdjango.fmailersdk.sdk import FmailerSdk
+from fmailersdk.sdk import FmailerSdk
+from fmailersdk.exceptions import FmailerSdkException
 ```
 
-This suggests the code was extracted from a `fmailerdjango` parent package. When modifying imports or creating new files, be aware that:
-- Current imports expect the package to be at `fmailerdjango.fmailersdk`
-- To make this a standalone package, imports would need to be changed to `from fmailersdk.` or relative imports
+Internal imports within the package use relative imports:
+```python
+from .exceptions import FmailerSdkException
+```
