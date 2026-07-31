@@ -70,6 +70,8 @@ class PostwingSdk:
         subject: str,
         body: str,
         idempotency_key: str = None,
+        reply_to: str = None,
+        headers: dict = None,
     ) -> bool:
         payload = {
             "auth": self.auth,
@@ -79,6 +81,12 @@ class PostwingSdk:
             "body": body,
             "idempotency_key": idempotency_key,
         }
+        # Only sent when set, so this client keeps working against an API
+        # deployment that predates these fields and would reject them.
+        if reply_to is not None:
+            payload["reply_to"] = reply_to
+        if headers:
+            payload["headers"] = headers
         try:
             path = f"{self.api_url}send_email_simple/"
 
@@ -123,6 +131,8 @@ class PostwingSdk:
         lang: str | None = None,
         params: dict | None = None,
         idempotency_key: str | None = None,
+        reply_to: str | None = None,
+        headers: dict | None = None,
     ):
         payload = {
             "auth": self.auth,
@@ -133,6 +143,11 @@ class PostwingSdk:
             "params": params,
             "idempotency_key": idempotency_key,
         }
+        # Only sent when set — see send_simple.
+        if reply_to is not None:
+            payload["reply_to"] = reply_to
+        if headers:
+            payload["headers"] = headers
         try:
             path = f"{self.api_url}send_email_tpl/"
 
@@ -176,6 +191,8 @@ class PostwingSdk:
         subject: str,
         body: str,
         idempotency_key: str = None,
+        reply_to: str = None,
+        headers: dict = None,
         callback: Callable[[bool, Exception | None], None] | None = None,
     ) -> Future:
         """
@@ -187,6 +204,9 @@ class PostwingSdk:
             subject: Email subject
             body: Email body (HTML)
             idempotency_key: Optional unique key to prevent duplicate sends
+            reply_to: Optional address replies should go to (Reply-To header)
+            headers: Optional extra headers. The API allowlists these:
+                In-Reply-To, References, Reply-To, and any X-* header.
             callback: Optional callback function called with (result, exception)
 
         Returns:
@@ -220,6 +240,8 @@ class PostwingSdk:
                     subject=subject,
                     body=body,
                     idempotency_key=idempotency_key,
+                    reply_to=reply_to,
+                    headers=headers,
                 )
                 if callback:
                     self._logger.debug(f"Calling callback for successful async email to {recipient}")
@@ -243,6 +265,8 @@ class PostwingSdk:
         lang: str | None = None,
         params: dict | None = None,
         idempotency_key: str | None = None,
+        reply_to: str | None = None,
+        headers: dict | None = None,
         callback: Callable[[bool, Exception | None], None] | None = None,
     ) -> Future:
         """
@@ -255,6 +279,9 @@ class PostwingSdk:
             lang: Language code (e.g., 'en', 'ru')
             params: Template parameters
             idempotency_key: Optional unique key to prevent duplicate sends
+            reply_to: Optional address replies should go to (Reply-To header)
+            headers: Optional extra headers. The API allowlists these:
+                In-Reply-To, References, Reply-To, and any X-* header.
             callback: Optional callback function called with (result, exception)
 
         Returns:
@@ -289,6 +316,8 @@ class PostwingSdk:
                     lang=lang,
                     params=params,
                     idempotency_key=idempotency_key,
+                    reply_to=reply_to,
+                    headers=headers,
                 )
                 if callback:
                     self._logger.debug(f"Calling callback for successful async email to {recipient}")

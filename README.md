@@ -352,21 +352,52 @@ PostwingSdk(username: str, password: str, fail_silently=False, max_workers=5, lo
 
 #### Methods
 
-##### `send_simple(recipient, sender, subject, body, idempotency_key=None) -> bool`
+##### `send_simple(recipient, sender, subject, body, idempotency_key=None, reply_to=None, headers=None) -> bool`
 
 Send a simple HTML email synchronously.
 
-##### `send(tpl, recipient, sender, lang=None, params=None, idempotency_key=None) -> bool`
+##### `send(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, reply_to=None, headers=None) -> bool`
 
 Send a templated email synchronously.
 
-##### `send_simple_async(recipient, sender, subject, body, idempotency_key=None, callback=None) -> Future`
+##### `send_simple_async(recipient, sender, subject, body, idempotency_key=None, reply_to=None, headers=None, callback=None) -> Future`
 
 Send a simple HTML email asynchronously.
 
-##### `send_async(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, callback=None) -> Future`
+##### `send_async(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, reply_to=None, headers=None, callback=None) -> Future`
 
 Send a templated email asynchronously.
+
+#### Reply-To and extra headers
+
+Both send methods accept `reply_to` (an address, written as the `Reply-To`
+header) and `headers` (a dict). Either is sent only when you set it, so this
+client still works against an API deployment that predates them.
+
+`headers` is **allowlisted by the API**, because an unfiltered header dict on a
+token-authenticated endpoint would let a caller forge `From` or add a silent
+`Bcc`. Accepted names:
+
+- `In-Reply-To`, `References`, `Reply-To`
+- any `X-*` header (`^X-[A-Za-z0-9-]+$`)
+
+Anything else is a 400 naming the header. Values may not contain CR or LF, are
+capped at 998 characters, and at most 20 headers may be sent at once.
+
+```python
+sdk.send_simple(
+    recipient="user@example.com",
+    sender="Support <support@example.com>",
+    subject="Re: your question",
+    body="<p>Here is the answer.</p>",
+    reply_to="support@example.com",
+    headers={
+        "In-Reply-To": "<abc@mail.example.com>",
+        "References": "<abc@mail.example.com>",
+        "X-Ticket-Id": "1234",
+    },
+)
+```
 
 ##### `shutdown(wait=True)`
 

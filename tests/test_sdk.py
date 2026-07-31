@@ -517,3 +517,82 @@ class PostwingAsyncTestUtils(unittest.TestCase):
         self.assertEqual(payload['subject'], "Test Subject")
         self.assertEqual(payload['body'], "<p>Test Body</p>")
         self.assertEqual(payload['idempotency_key'], "test-key")
+
+
+class PostwingReplyToAndHeadersTest(unittest.TestCase):
+    """`reply_to` and `headers` reach the payload — and only when set.
+
+    The "only when set" half is the compatibility contract: this client is
+    installed against API deployments older than the fields, which reject an
+    unknown key rather than ignoring it.
+    """
+
+    def _ok(self, mock_post):
+        mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = "OK"
+
+    def _payload(self, mock_post) -> dict:
+        return json.loads(mock_post.call_args.kwargs["data"])
+
+    @patch("requests.post")
+    def test_send_simple_omits_both_when_unset(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(),
+            sender=faker.email(),
+            subject="s",
+            body="b",
+        )
+        payload = self._payload(mock_post)
+        self.assertNotIn("reply_to", payload)
+        self.assertNotIn("headers", payload)
+
+    @patch("requests.post")
+    def test_send_simple_includes_both_when_set(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(),
+            sender=faker.email(),
+            subject="s",
+            body="b",
+            reply_to="support@postwing.app",
+            headers={"In-Reply-To": "<a@b>", "References": "<a@b>"},
+        )
+        payload = self._payload(mock_post)
+        self.assertEqual("support@postwing.app", payload["reply_to"])
+        self.assertEqual("<a@b>", payload["headers"]["In-Reply-To"])
+
+    @patch("requests.post")
+    def test_send_templated_carries_them_too(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send(
+            tpl="welcome",
+            recipient=faker.email(),
+            sender=faker.email(),
+            reply_to="support@fmailer.ru",
+            headers={"X-Ticket": "abc"},
+        )
+        payload = self._payload(mock_post)
+        self.assertEqual("support@fmailer.ru", payload["reply_to"])
+        self.assertEqual({"X-Ticket": "abc"}, payload["headers"])
+
+    @patch("requests.post")
+    def test_an_empty_headers_dict_is_not_sent(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(), sender=faker.email(), subject="s", body="b",
+            headers={},
+        )
+        self.assertNotIn("headers", self._payload(mock_post))
+
+    @patch("requests.post")
+    def test_async_variants_pass_them_through(self, mock_post):
+        self._ok(mock_post)
+        sdk = PostwingSdk("u", "p")
+        sdk.send_simple_async(
+            recipient=faker.email(), sender=faker.email(), subject="s", body="b",
+            reply_to="support@postwing.app",
+        ).result()
+        self.assertEqual("support@postwing.app", self._payload(mock_post)["reply_to"])
+        sdk.shutdown()
