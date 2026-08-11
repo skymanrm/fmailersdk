@@ -68,6 +68,7 @@ sdk.send_simple(
     sender="noreply@example.com",
     subject="Important Notice",
     body="<p>This is an important message.</p>",
+    text="This is an important message.",  # Optional: derived from body if omitted
     idempotency_key="unique-key-123"  # Optional: prevent duplicates
 )
 ```
@@ -352,19 +353,19 @@ PostwingSdk(username: str, password: str, fail_silently=False, max_workers=5, lo
 
 #### Methods
 
-##### `send_simple(recipient, sender, subject, body, idempotency_key=None, reply_to=None, headers=None) -> bool`
+##### `send_simple(recipient, sender, subject, body, idempotency_key=None, reply_to=None, headers=None, text=None, mass_mail=None) -> bool`
 
 Send a simple HTML email synchronously.
 
-##### `send(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, reply_to=None, headers=None) -> bool`
+##### `send(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, reply_to=None, headers=None, text=None, mass_mail=None) -> bool`
 
 Send a templated email synchronously.
 
-##### `send_simple_async(recipient, sender, subject, body, idempotency_key=None, reply_to=None, headers=None, callback=None) -> Future`
+##### `send_simple_async(recipient, sender, subject, body, idempotency_key=None, reply_to=None, headers=None, text=None, mass_mail=None, callback=None) -> Future`
 
 Send a simple HTML email asynchronously.
 
-##### `send_async(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, reply_to=None, headers=None, callback=None) -> Future`
+##### `send_async(tpl, recipient, sender, lang=None, params=None, idempotency_key=None, reply_to=None, headers=None, text=None, mass_mail=None, callback=None) -> Future`
 
 Send a templated email asynchronously.
 
@@ -398,6 +399,63 @@ sdk.send_simple(
     },
 )
 ```
+
+#### The plain-text part (`text`)
+
+Every message goes out as `multipart/alternative` — an HTML part and a
+plain-text one. `body` is the HTML; `text` is the plain-text alternative, and
+it is optional. Leave it out and the API derives one from your HTML: tags
+dropped, entities decoded, links spelled out after their anchor text.
+
+**Send it when the wording matters.** A derived part cannot know which parts of
+a layout were decoration, and it never sees the sentence you would have written
+for a reader who gets no styling at all. Both parts are sent either way, so
+this is the difference between a text reader seeing your words and seeing a
+flattening of your markup — and mailbox providers compare the two parts when
+scoring a message.
+
+```python
+sdk.send_simple(
+    recipient="user@example.com",
+    sender="Support <support@example.com>",
+    subject="Your receipt",
+    body="<p>Thanks! Your order <b>#4417</b> is confirmed.</p>",
+    text="Thanks! Your order #4417 is confirmed.",
+)
+```
+
+An empty string is a valid value — the API falls back to the derived part
+rather than sending a blank one — so the client passes `""` through untouched.
+
+On `send()`/`send_async()`, `text` is used **verbatim**: a template's `params`
+are substituted into the template's own body, never into this string. Omit it
+on templated sends unless your text has no placeholders.
+
+#### Marking a campaign (`mass_mail`)
+
+Set `mass_mail=True` on marketing and other bulk mail. It attaches the
+one-click unsubscribe headers (`List-Unsubscribe` and `List-Unsubscribe-Post`)
+that Apple, Gmail and Yahoo require of bulk senders — without them a campaign
+can be rejected outright or filed as spam.
+
+Omit it and the API classifies the message itself, but that is a heuristic and
+it can read a campaign as transactional. The flag is **one-way**: `True` marks
+a message bulk, while `False` simply leaves the decision to the API. It is not
+a way to send a campaign without an unsubscribe header.
+
+```python
+sdk.send_simple(
+    recipient="user@example.com",
+    sender="News <news@example.com>",
+    subject="March newsletter",
+    body=html,
+    text=plain,
+    mass_mail=True,
+)
+```
+
+Like `reply_to` and `headers`, both fields are sent only when you set them, so
+this client still works against an API deployment that predates them.
 
 ##### `shutdown(wait=True)`
 
@@ -464,13 +522,13 @@ make test-specific TEST=tests.PostwingAsyncTestUtils.test_send_simple_async_succ
 ```bash
 # Run all tests
 source .venv/bin/activate
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests
+PYTHONPATH=src:$PYTHONPATH python -m unittest tests
 
 # Run specific test class
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.PostwingTestUtils
+PYTHONPATH=src:$PYTHONPATH python -m unittest tests.PostwingTestUtils
 
 # Run specific test
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.PostwingAsyncTestUtils.test_send_simple_async_success
+PYTHONPATH=src:$PYTHONPATH python -m unittest tests.PostwingAsyncTestUtils.test_send_simple_async_success
 ```
 
 ### Building and Publishing

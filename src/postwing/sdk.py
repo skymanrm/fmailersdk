@@ -72,7 +72,22 @@ class PostwingSdk:
         idempotency_key: str = None,
         reply_to: str = None,
         headers: dict = None,
+        text: str = None,
+        mass_mail: bool = None,
     ) -> bool:
+        """Send a ready-made message.
+
+        Args:
+            body: the HTML part.
+            text: the plain-text part. Optional — omitted, the API derives one
+                from `body`. Worth sending: a derived part cannot know which
+                parts of a layout were decoration, and every message carries
+                both parts either way.
+            mass_mail: True for marketing and other bulk mail. Attaches the
+                one-click unsubscribe headers Apple, Gmail and Yahoo require of
+                bulk senders. One-way — False does not remove them, it leaves
+                the decision to the API's own classifier.
+        """
         payload = {
             "auth": self.auth,
             "recipient": recipient,
@@ -87,6 +102,10 @@ class PostwingSdk:
             payload["reply_to"] = reply_to
         if headers:
             payload["headers"] = headers
+        if text is not None:
+            payload["text"] = text
+        if mass_mail is not None:
+            payload["mass_mail"] = mass_mail
         try:
             path = f"{self.api_url}send_email_simple/"
 
@@ -133,7 +152,19 @@ class PostwingSdk:
         idempotency_key: str | None = None,
         reply_to: str | None = None,
         headers: dict | None = None,
+        text: str | None = None,
+        mass_mail: bool | None = None,
     ):
+        """Render a saved template and send it.
+
+        Args:
+            text: the plain-text part. Note that it is used **verbatim** — a
+                template's `params` are substituted into the template's own
+                body, never into this string, so a `text` here should not
+                contain placeholders. Omit it and the API derives one from the
+                rendered HTML, with the substitutions already applied.
+            mass_mail: True for bulk mail; see `send_simple`.
+        """
         payload = {
             "auth": self.auth,
             "tpl": tpl,
@@ -148,6 +179,10 @@ class PostwingSdk:
             payload["reply_to"] = reply_to
         if headers:
             payload["headers"] = headers
+        if text is not None:
+            payload["text"] = text
+        if mass_mail is not None:
+            payload["mass_mail"] = mass_mail
         try:
             path = f"{self.api_url}send_email_tpl/"
 
@@ -193,6 +228,8 @@ class PostwingSdk:
         idempotency_key: str = None,
         reply_to: str = None,
         headers: dict = None,
+        text: str = None,
+        mass_mail: bool = None,
         callback: Callable[[bool, Exception | None], None] | None = None,
     ) -> Future:
         """
@@ -207,6 +244,10 @@ class PostwingSdk:
             reply_to: Optional address replies should go to (Reply-To header)
             headers: Optional extra headers. The API allowlists these:
                 In-Reply-To, References, Reply-To, and any X-* header.
+            text: Optional plain-text part. Omitted, the API derives one from
+                the HTML body.
+            mass_mail: True for bulk mail — attaches the one-click unsubscribe
+                headers. One-way; see send_simple.
             callback: Optional callback function called with (result, exception)
 
         Returns:
@@ -242,6 +283,8 @@ class PostwingSdk:
                     idempotency_key=idempotency_key,
                     reply_to=reply_to,
                     headers=headers,
+                    text=text,
+                    mass_mail=mass_mail,
                 )
                 if callback:
                     self._logger.debug(f"Calling callback for successful async email to {recipient}")
@@ -267,6 +310,8 @@ class PostwingSdk:
         idempotency_key: str | None = None,
         reply_to: str | None = None,
         headers: dict | None = None,
+        text: str | None = None,
+        mass_mail: bool | None = None,
         callback: Callable[[bool, Exception | None], None] | None = None,
     ) -> Future:
         """
@@ -282,6 +327,10 @@ class PostwingSdk:
             reply_to: Optional address replies should go to (Reply-To header)
             headers: Optional extra headers. The API allowlists these:
                 In-Reply-To, References, Reply-To, and any X-* header.
+            text: Optional plain-text part, used verbatim — `params` are not
+                substituted into it; see send().
+            mass_mail: True for bulk mail — attaches the one-click unsubscribe
+                headers. One-way; see send_simple.
             callback: Optional callback function called with (result, exception)
 
         Returns:
@@ -318,6 +367,8 @@ class PostwingSdk:
                     idempotency_key=idempotency_key,
                     reply_to=reply_to,
                     headers=headers,
+                    text=text,
+                    mass_mail=mass_mail,
                 )
                 if callback:
                     self._logger.debug(f"Calling callback for successful async email to {recipient}")

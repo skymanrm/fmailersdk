@@ -2,7 +2,11 @@
 
 # Python and PYTHONPATH configuration
 PYTHON := python
-PYTHONPATH := /Users/skyman/Documents/My/Python:$$PYTHONPATH
+# `src` first, so the suite tests this working tree. It used to name one
+# developer's home directory, which exists nowhere else — so everywhere else
+# the tests silently imported whatever `postwing` was installed in the
+# environment and passed against code that was not in this repo.
+PYTHONPATH := src:$$PYTHONPATH
 VENV := .venv
 VENV_PYTHON := $(VENV)/bin/python
 

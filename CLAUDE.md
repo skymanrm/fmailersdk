@@ -38,6 +38,18 @@ postwing/
    - Two main sending modes:
      - `send_simple()` / `send_simple_async()`: Send HTML emails directly
      - `send()` / `send_async()`: Send templated emails with parameters
+   - **Optional payload fields are omitted, not sent as null.** `reply_to`,
+     `headers`, `text` and `mass_mail` are added to the payload only when the
+     caller sets them, because this client gets installed against API
+     deployments older than the field, and an unknown key is rejected rather
+     than ignored. The test for any new field is therefore two cases: present
+     when set, *absent* when not
+   - `text` is the `text/plain` alternative to `body`'s HTML; omitted, the API
+     derives one. On the templated methods it is used verbatim — `params` are
+     substituted into the template body, never into `text`
+   - `mass_mail=True` attaches the one-click unsubscribe headers bulk senders
+     need. One-way: `False` does not remove them, it defers to the API's own
+     classifier, so it is a tri-state and `False` must still reach the wire
 
 2. **Exception handling** (`src/postwing/exceptions.py`):
    - Single custom exception: `PostwingSdkException`
@@ -88,18 +100,19 @@ make test-async
 make test-specific TEST=tests.test_sdk.PostwingAsyncTestUtils.test_send_simple_async_success
 ```
 
-Or manually with proper PYTHONPATH:
+Or manually, with `src` on the path so the suite tests this working tree
+rather than whatever `postwing` happens to be installed in the environment:
 
 ```bash
 source .venv/bin/activate
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest discover -s tests
+PYTHONPATH=src:$PYTHONPATH python -m unittest discover -s tests
 ```
 
 Run specific test class:
 ```bash
 source .venv/bin/activate
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.test_sdk.PostwingTestUtils
-PYTHONPATH=/Users/skyman/Documents/My/Python:$PYTHONPATH python -m unittest tests.test_sdk.PostwingAsyncTestUtils
+PYTHONPATH=src:$PYTHONPATH python -m unittest tests.test_sdk.PostwingTestUtils
+PYTHONPATH=src:$PYTHONPATH python -m unittest tests.test_sdk.PostwingAsyncTestUtils
 ```
 
 ### Test Structure

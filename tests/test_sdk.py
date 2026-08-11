@@ -596,3 +596,100 @@ class PostwingReplyToAndHeadersTest(unittest.TestCase):
         ).result()
         self.assertEqual("support@postwing.app", self._payload(mock_post)["reply_to"])
         sdk.shutdown()
+
+
+class PostwingTextAndMassMailTest(unittest.TestCase):
+    """`text` and `mass_mail` reach the payload — and only when set.
+
+    Same compatibility contract as `reply_to`/`headers`: this client is
+    installed against API deployments older than the fields, which reject an
+    unknown key rather than ignoring it.
+    """
+
+    def _ok(self, mock_post):
+        mock_post.return_value.ok = True
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.text = "OK"
+
+    def _payload(self, mock_post) -> dict:
+        return json.loads(mock_post.call_args.kwargs["data"])
+
+    @patch("requests.post")
+    def test_send_simple_omits_both_when_unset(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(), sender=faker.email(), subject="s", body="b",
+        )
+        payload = self._payload(mock_post)
+        self.assertNotIn("text", payload)
+        self.assertNotIn("mass_mail", payload)
+
+    @patch("requests.post")
+    def test_send_simple_includes_both_when_set(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(),
+            sender=faker.email(),
+            subject="s",
+            body="<p>Hello</p>",
+            text="Hello",
+            mass_mail=True,
+        )
+        payload = self._payload(mock_post)
+        self.assertEqual("Hello", payload["text"])
+        self.assertIs(True, payload["mass_mail"])
+
+    @patch("requests.post")
+    def test_mass_mail_false_is_still_sent(self, mock_post):
+        """It is a tri-state on the wire: False is a statement, and only None
+        means "not specified"."""
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(), sender=faker.email(), subject="s", body="b",
+            mass_mail=False,
+        )
+        self.assertIs(False, self._payload(mock_post)["mass_mail"])
+
+    @patch("requests.post")
+    def test_an_empty_text_is_still_sent(self, mock_post):
+        """Unlike `headers`, `""` is a value the API understands — it falls
+        back to the derived part — so the client does not second-guess it."""
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send_simple(
+            recipient=faker.email(), sender=faker.email(), subject="s", body="b",
+            text="",
+        )
+        self.assertEqual("", self._payload(mock_post)["text"])
+
+    @patch("requests.post")
+    def test_send_templated_carries_them_too(self, mock_post):
+        self._ok(mock_post)
+        PostwingSdk("u", "p").send(
+            tpl="welcome",
+            recipient=faker.email(),
+            sender=faker.email(),
+            text="Plain wording",
+            mass_mail=True,
+        )
+        payload = self._payload(mock_post)
+        self.assertEqual("Plain wording", payload["text"])
+        self.assertIs(True, payload["mass_mail"])
+
+    @patch("requests.post")
+    def test_async_variants_pass_them_through(self, mock_post):
+        self._ok(mock_post)
+        sdk = PostwingSdk("u", "p")
+        sdk.send_simple_async(
+            recipient=faker.email(), sender=faker.email(), subject="s", body="b",
+            text="Hello", mass_mail=True,
+        ).result()
+        payload = self._payload(mock_post)
+        self.assertEqual("Hello", payload["text"])
+        self.assertIs(True, payload["mass_mail"])
+
+        sdk.send_async(
+            tpl="welcome", recipient=faker.email(), sender=faker.email(),
+            text="Hello", mass_mail=True,
+        ).result()
+        self.assertEqual("Hello", self._payload(mock_post)["text"])
+        sdk.shutdown()
